@@ -1,75 +1,62 @@
-# Pypsa-China-ElecTRADE-Draworld
+# Pypsa-China-ElecCoalFleet-Draworld
 
-Daily zonal electricity market simulation for China  
-Rolling welfare-maximizing dispatch with automated publication
+Capacity-expansion model with explicit coal-units
 
 ---
 
 ## Overview
 
-Pypsa-China-ElecTRADE-Draworld is a reproducible day-ahead (D-1) market clearing engine built on PyPSA.  
-It performs rolling optimization, exports results, and publishes them via a static web interface.
+Pypsa-China-ElecCoalFleet-Draworld is a high-resolution capacity-expansion and asset rationalization framework built on PyPSA. It models the long-term evolutionary path of China's power system from 2025 to 2050. 
 
-The system separates:
-
-- **Model year (data structure):** 2025 representative system year  
-- **Publication year (timestamp):** Real calendar year (e.g. 2026 and later)
-
-This preserves physical consistency while maintaining operational relevance.
+Instead of treating the coal fleet as a uniform aggregate, the model explicitly tracks over 3,000 individual, heterogeneous coal units. It simulates how this fleet responds to strict climate constraints, market forces, and policy-driven "periodic shock therapy" across a recursive timeline.
 
 ---
 
 ## Model Design
 
-- 33 provincial zones
-- Linear welfare maximization
-- 48h rolling horizon, 24h publication
-- Interzonal transmission constraints
-- Storage intertemporal optimization
-- Locational marginal pricing (zonal aggregation)
+- **Granular Asset Tracking:** Explicit modeling of over 3000 individual coal units with distinct efficiencies, start-up costs, and vintages.
+- **Endogenous Asset Lifetime:** Determines early retirement and phase-out dynamics as optimized economic choices rather than fixed parameters.
+- **Exogenous VRE Trajectories:** Imposes predefined wind and solar deployment paths (e.g., +200 GW/year) to reflect political commitments.
+- **Nodal Market Clearing:** Captures high-resolution spatial price signals (LMPs) and transmission bottlenecks across provincial grids.
+- **Recursive Timeline (2035–2050):** Simulates 5-year iterative steps under tight binding constraints:
+  - Zero electricity demand growth (saturation post-2035)
+  - Strict curtailment discipline ($<10\%$)
+  - Zero-emission power sector target by 2050 (with no CCS)
+  - Automatic "deletion" of coal units that lose their generation roles under economic dispatch.
 
 Outputs include:
-
-- Hourly zonal prices
-- Interzonal flows
-- Storage SOC
-- Full solved PyPSA network (`.nc`)
-- Others
+- Fleet lifetime distribution profiles (quantifying "immature" retirements)
+- Stranded asset volumes (GW) and localized capacity impacts
+- Financial requirement metrics for capacity payment mechanisms (benchmarked at 330 RMB/kW/year)
+- Full solved PyPSA network files (`.nc`)
 
 ---
 
-## Web Interface
+## Web & Visualization Interface
 
-- Interactive zonal map (MapLibre)
-- Hourly price curves (Plotly)
-- Storage visualization (Plotly)
-- Attribution labeling (Draworld / PyPSA / MapLibre)
+- **Nodal Price & Flow Maps:** Interactive spatial visualization of transmission bottlenecks and regional price divergence.
+- **Fleet Lifetime Dashboards:** Distribution curves comparing unit-level operational lifespans against standard design lives.
+- **Capacity Payment Analysis:** Visual tools to assess the monetary scale needed to maintain retired units as strategic reserves.
 
 ---
 
 ## Applications
 
-The platform can support:
+The platform is designed to support:
 
-- Congestion price analysis  
-- Coal flexibility diagnostics  
-- Renewable integration stress tests  
-- Storage arbitrage demonstration  
-- Interprovincial trade evaluation  
-- Market design comparison 
-
-Potential extension in 2020/2030s:
-
-- Electricity trading sandbox  
-- Training and simulation environment  
-- Policy workshop demonstration tool  
-- Strategic bidding experiments  
-
-
-## License
-AGPL-3.0, Aligned with the open modeling ecosystem of PyPSA.
+- **Coal Phase-out Pathways:** Diagnosing which units are forced into "zombie" states or operational compression under rapid transitions.
+- **Stranded Asset Risk Valuation:** Quantifying the asset longevity gap and economic shocks of premature retirements.
+- **Capacity Market Design:** Evaluating the financial burden and necessary magnitudes of capacity payments to keep units online for reliability.
+- **Policy Credibility Stress Tests:** Verifying whether long-term net-zero targets remain physically and economically viable under rigid institutional constraints.
+- **Market Design Comparison:** Contrasting China's administrative allocation approach against textbook economic dispatch principles.
 
 ---
+
+## License
+AGPL-3.0, aligned with the open modeling ecosystem of PyPSA.
+
+---
+
 ## Statement
 
-Pypsa-China-ElecTRADE-Draworld is a research, toy-electricity-trade-game and training dispatch engine. It is not an official trading system or regulatory platform.
+Pypsa-China-ElecCoalFleet-Draworld is a research, scenario-exploration, and policy-workshop tool. It is designed for long-term power system structural analysis and does not represent official regulatory timelines or commercial trading strategies.
