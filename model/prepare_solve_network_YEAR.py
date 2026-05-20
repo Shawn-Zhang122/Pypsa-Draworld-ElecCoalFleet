@@ -81,7 +81,7 @@ import validation_before_solving as vbs
 # =======================
 # CONFIG
 # =======================
-YEAR = 2025
+YEAR = 2035
 
 LOAD_CSV   = f"data/inputs_{YEAR}/Load/Load_NDRC_BAs_China_Draworld_normalised_2025compiled.csv"
 EDGES_CSV  = f"data/inputs_{YEAR}/Network/edges_33nodes_500kVplus_updates_Jan2026.csv"
