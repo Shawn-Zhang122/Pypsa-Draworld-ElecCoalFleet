@@ -373,7 +373,7 @@ def enforce_cols(df: pd.DataFrame) -> pd.DataFrame:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--coal_xlsx", default="data/raw/Global-Coal-Plant-Tracker-July-2025.xlsx")
+    ap.add_argument("--coal_xlsx", default="data/raw/Global-Coal-Plant-Tracker-January-2026.xlsx")
     ap.add_argument("--gogpt_xlsx", default="data/raw/Global-Oil-and-Gas-Plant-Tracker-GOGPT-August-2025.xlsx")
     ap.add_argument("--splits_json", default="config/splits_33nodes.json")
     ap.add_argument("--mapping_json", default="config/region_province_node_33.json")

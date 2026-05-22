@@ -82,6 +82,7 @@ import validation_before_solving as vbs
 # CONFIG
 # =======================
 YEAR = 2035
+BASE_YEAR = 2025
 
 LOAD_CSV   = f"data/inputs_{YEAR}/Load/Load_NDRC_BAs_China_Draworld_normalised_2025compiled.csv"
 EDGES_CSV  = f"data/inputs_{YEAR}/Network/edges_33nodes_500kVplus_updates_Jan2026.csv"
@@ -262,6 +263,58 @@ def export_dual(n, constraint_name, snapshots, assets):
     return df
 
 
+def apply_exogenous_re_growth(n: pypsa.Network, base_year: int = 2025, target_year: int = 2035):
+    """
+    根据设定的年增长速度，外生计算并更新风电和光伏的固定容量(p_nom)。
+    保持 p_nom_extendable = False，直接改变系统的物理边界。
+    
+    增长规则：
+    - 风电(onwind): 全国每年固定增长 120 GW (120,000 MW)
+    - 光伏(solar): 全国每年固定增长 80 GW (80,000 MW)
+    - 分配方式：基于 base_year 各节点初始容量比例进行全国等比例分摊
+    """
+    years_elapsed = target_year - base_year
+    if years_elapsed <= 0:
+        print(f"[RE Growth] Target year {target_year} <= base year {base_year}. No growth applied.")
+        return
+
+    # 定义年增长量 (单位: MW)
+    annual_growth = {
+        "onwind": 120000.0,
+        "solar": 80000.0
+    }
+
+    print(f"\n=== Applying RE Exogenous Growth from {base_year} to {target_year} ({years_elapsed} years) ===")
+
+    for carrier, annual_mw in annual_growth.items():
+        # 1. 筛选当前 carrier 且 p_nom > 0 的生成器
+        mask = (n.generators.carrier == carrier) & (n.generators.p_nom > 0)
+        if not mask.any():
+            print(f"[Warning] No existing generators found for carrier: {carrier}. Skipping growth.")
+            continue
+            
+        gens = n.generators[mask]
+        total_base_cap = gens["p_nom"].sum()
+        
+        # 2. 计算全国总新增量 (MW)
+        total_added_cap = annual_mw * years_elapsed
+        
+        print(f"Carrier: {carrier:<8} | 2025 Base: {total_base_cap/1e3:7.2f} GW | Total Added: {total_added_cap/1e3:7.2f} GW")
+        
+        # 3. 按照现有容量比例分配给各个机组
+        for idx_gen, row_gen in gens.iterrows():
+            share = row_gen["p_nom"] / total_base_cap
+            added_mw = total_added_cap * share
+            
+            # 直接更新网络中的固定网络容量上限
+            n.generators.at[idx_gen, "p_nom"] = row_gen["p_nom"] + added_mw
+            
+        # 4. 确保这些可再生能源的扩展关闭，作为完全外生参数
+        n.generators.loc[n.generators.carrier == carrier, "p_nom_extendable"] = False
+
+    print("=== RE Exogenous Growth Applied Successfully ===\n")
+
+
 # =======================
 # BUILD NETWORK
 # =======================
@@ -286,7 +339,7 @@ others = pd.read_csv(OTHERS_SETTING_CSV)
 #others["node"] = others["node"].map(norm)
 others = others.set_index("node")
 
-max_load_mw = others["Max_Load_GW"] * 1e3  # GW -> MW
+max_load_mw = others[f"Max_Load_GW_{YEAR}"] * 1e3  # GW -> MW
 
 n = pypsa.Network()
 n.set_snapshots(idx)
@@ -591,40 +644,55 @@ n.links["p_nom_max"] = n.links["p_nom"]
 # default: no generator is extendable
 n.generators["p_nom_extendable"] = False
 # only coal generators are extendable, to avoid the "infeasible" issue
-mask = n.generators.carrier == "coal"
-n.generators.loc[mask, "p_nom_extendable"] = False
+mask = n.generators.carrier == "gas"
+n.generators.loc[mask, "p_nom_extendable"] = True
 
 # --- Stores
-n.stores["e_nom_extendable"] = False
+n.stores["e_nom_extendable"] = True
 n.stores["e_nom_min"] = n.stores["e_nom"]
-n.stores["e_nom_max"] = n.stores["e_nom"]
+n.stores["e_nom_max"] = np.inf
+
+# YEAR 变量在脚本顶部定义（例如 2035），系统会自动计算 2025~2035 期间累计新增的容量
+apply_exogenous_re_growth(n, base_year=2025, target_year=YEAR)
 
 #Investment cost silienced.
-n.links["capital_cost"] = 0.0
-n.generators["capital_cost"] = 0.0
-n.stores["capital_cost"] = 0.0
-n.generators["p_nom_0"] = n.generators.p_nom.copy()
+# n.links["capital_cost"] = 0.0
+# n.generators["capital_cost"] = 0.0
+# n.stores["capital_cost"] = 0.0
+# n.generators["p_nom_0"] = n.generators.p_nom.copy()
 #to be used for faster testing and online display/update every week
 #n.set_snapshots(n.snapshots[:168])  # 1 week
 
+# 1. Execute the optimization problem
 n.optimize(
     solver_name="gurobi",
     solver_options=solver_options,
 )
+
+# 2. Explicitly check solver status and verify optimization results
+print(f"Solver status: {n.model.status}")
+if n.model.status == "ok":
+    print("Optimization successful! Time-series results are fully consolidated into the network dataframes...")
+    # Do not manually overwrite or clear n.generators_t.p here to prevent data stripping
+else:
+    print("[Warning] Solver did not find an optimal solution! Time-series outputs may be incomplete or invalid.")
+
+# 3. Export full network object to NetCDF without filtering out dynamic arrays
+# Any custom export filters should be removed to ensure 8760h time-series variables are preserved
+n.export_to_netcdf(f"results/China_33nodes_dispatch_{YEAR}.nc")
+print(f"Full network with 8760h time-series successfully saved for the target year: {YEAR}.")
 
 # WRITE NETCDF IMMEDIATELY
 #prices = n.buses_t.marginal_price.copy()
 #n.generators["p_nom_star"] = n.generators.p_nom
 #prices.to_csv(OUT_PRICE)
 # --- Store energy balance dual ---
-n.stores_t["mu_energy"] = export_dual(
-    n,
-    "Store-energy_balance",
-    n.snapshots,
-    n.stores.index
-)
-
-n.export_to_netcdf(f"results/China_33nodes_dispatch_{YEAR}.nc")
+# n.stores_t["mu_energy"] = export_dual(
+#     n,
+#     "Store-energy_balance",
+#     n.snapshots,
+#     n.stores.index
+# )
 
 # =======================
 # EXPORT
