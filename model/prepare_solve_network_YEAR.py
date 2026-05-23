@@ -77,12 +77,13 @@ pd.options.mode.string_storage = "python"
 
 from build_fuel_cost import hourly_index, build_marginal_cost
 import validation_before_solving as vbs
+import sys
 
 # =======================
 # CONFIG
 # =======================
-YEAR = 2035
-BASE_YEAR = 2025
+YEAR      = int(sys.argv[1]) if len(sys.argv) > 1 else 2055
+BASE_YEAR = int(sys.argv[2]) if len(sys.argv) > 2 else 2025
 
 LOAD_CSV   = f"data/inputs_{YEAR}/Load/Load_NDRC_BAs_China_Draworld_normalised_2025compiled.csv"
 EDGES_CSV  = f"data/inputs_{YEAR}/Network/edges_33nodes_500kVplus_updates_Jan2026.csv"
@@ -636,9 +637,17 @@ n.generators_t.marginal_cost = mc
 #vbs.validation_before_solving(n)
 
 # --- Links (AC/DC)
-n.links["p_nom_extendable"] = False
-n.links["p_nom_min"] = n.links["p_nom"]
-n.links["p_nom_max"] = n.links["p_nom"]
+# --- Links (AC/DC transmission only, NOT storage)
+transmission_mask = n.links.carrier.isin(['ac', 'dc'])
+
+n.links.loc[transmission_mask, "p_nom_extendable"] = False
+n.links.loc[transmission_mask, "p_nom_min"] = n.links.loc[transmission_mask, "p_nom"]
+n.links.loc[transmission_mask, "p_nom_max"] = n.links.loc[transmission_mask, "p_nom"]
+
+# --- Storage links (battery/pumped) remain extendable
+storage_mask = n.links.carrier.isin(['battery_charge', 'battery_discharge', 
+                                      'pumped_charge', 'pumped_discharge'])
+n.links.loc[storage_mask, "p_nom_extendable"] = True
 
 # --- Generators
 # default: no generator is extendable
