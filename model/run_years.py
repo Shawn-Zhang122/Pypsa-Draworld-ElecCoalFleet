@@ -2,7 +2,6 @@
 Sequential multi-year dispatch solver: 2035 → 2045 → 2055
 Usage: python run_years.py
 """
-
 import subprocess, sys, time, traceback
 import numpy as np
 from pathlib import Path
@@ -39,3 +38,6 @@ print(f"{'='*55}")
 for y, status in summary.items():
     mark = "✓" if status.startswith("OK") else "✗"
     print(f"  {mark}  {y}: {status}")
+
+
+    
